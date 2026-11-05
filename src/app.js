@@ -1,8 +1,8 @@
 import { PLANETS, RASHIS, NAKSHATRAS } from './jyotish.js';
 import { DEFAULT_SETTINGS, mergeSettings } from './settings.js';
 import { parseCSV, toCSV, mergeBars, store, istToday, nextTradingDays } from './data.js';
-import { buildDatasetAsync, walkForward, inSampleScores, featureTable } from './model.js';
-import { runBacktest } from './backtest.js';
+import { buildDatasetAsync, walkForward, inSampleScores, featureTable, snapshotFor } from './model.js';
+import { runBacktest, normaliseScores, combineSignal } from './backtest.js';
 import { explain, chartDetails, scoreStats } from './live.js';
 import { buildGrid } from './sarvatobhadra.js';
 import { EXAMPLE_RULES, validateRule } from './rules.js';
@@ -27,7 +27,7 @@ const app = {
   settings: mergeSettings(DEFAULT_SETTINGS, store.get('settings', {})),
   rules: store.get('rules', []),
   inst: store.get('inst', 'banknifty'),
-  bars: [], tab: 'today', date: istToday(), models: null, busy: false, bt: null, sbcFocus: '',
+  bars: [], tab: 'today', date: istToday(), models: null, busy: false, bt: null, sbcFocus: '', btRange: store.get('btRange', { from: '', to: '' }),
 };
 
 function toast(msg, ms = 2600) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), ms); }
@@ -114,14 +114,25 @@ async function viewToday(host) {
   try { models = await ensureModels(pr); } catch (e) { top.innerHTML = ''; top.append(h('b', { class: 'bad' }, 'Model not ready'), h('p', { class: 'note' }, e.message)); return; }
   top.remove();
   const sig = liveSignal(models, app.date), strat = app.settings.strategy;
-  const [lab, lc] = labelOf(sig.x, strat.thr);
+  // Is this a past trading day in the data? Then show what the model would have said back then (out-of-sample) + what really happened.
+  const t = models.ds.days.findIndex((d) => d.d === app.date);
+  const day = t >= 0 ? models.ds.days[t] : null;
+  let show = { x: sig.x, xf: sig.xf, xs: sig.xs }, mode = 'live';
+  if (day) {
+    const xf = normaliseScores(models.fast.S)[t], xs = normaliseScores(models.slow.S)[t], x = combineSignal(models.fast.S, models.slow.S, strat)[t];
+    if (Number.isFinite(x)) { show = { x, xf, xs }; mode = 'oos'; } else mode = 'warmup';
+  }
+  const [lab, lc] = labelOf(show.x, strat.thr);
   const snap = sig.ef.snap;
+  const modeNote = { live: 'Latest model (trained on all data so far).', oos: 'Out-of-sample: yeh wahi signal hai jo model us din se PEHLE ke data se deta.', warmup: 'Warm-up period: model ne yeh din training me dekha hai (in-sample), isliye is signal par bharosa mat karo.' }[mode];
 
   host.append(h('div', { class: 'card' },
     h('div', { class: 'row' }, h('div', {}, h('div', { class: 'note' }, `Signal for ${app.date} (chart @ ${fmtHour(app.settings.snapshotHourIST)} IST)`), h('div', { class: `big ${lc}` }, lab)), h('div', { style: 'width:150px' }, picker)),
     h('div', { class: 'grid g3', style: 'margin-top:10px' },
-      stat('Combined z', sgn(sig.x), cls(sig.x)), stat('Fast (day)', sgn(sig.xf), cls(sig.xf)), stat('Slow (trend)', sgn(sig.xs), cls(sig.xs))),
-    h('p', { class: 'note' }, `Mode: ${strat.mode} · threshold ±${strat.thr}. z = score ÷ std of past out-of-sample scores. Yeh research tool hai, financial advice nahi.`)));
+      stat('Combined z', sgn(show.x), cls(show.x)), stat('Fast (day)', sgn(show.xf), cls(show.xf)), stat('Slow (trend)', sgn(show.xs), cls(show.xs))),
+    h('p', { class: `note ${mode === 'warmup' ? 'warn' : ''}` }, modeNote),
+    day ? outcomeBlock(day, show.x, strat) : '',
+    h('p', { class: 'note' }, `Mode: ${strat.mode} · threshold ±${strat.thr}. Neeche ke "reasons" hamesha latest model ke weights se bante hain. Yeh research tool hai, financial advice nahi.`)));
 
   host.append(h('h2', {}, 'Kyun? Top contributors (fast layer)'));
   host.append(contribCard(sig.ef.contrib), groupBars(sig.ef.groups));
@@ -132,6 +143,14 @@ async function viewToday(host) {
   host.append(h('h2', {}, 'Aspects'), aspectCard(det));
   host.append(h('h2', {}, 'Sarvatobhadra Chakra'), sbcCard(snap, det.sbc));
   host.append(h('h2', {}, 'Next 10 trading days'), outlook(models));
+}
+
+function outcomeBlock(day, x, strat) {
+  const r = strat.mode === 'slow' ? day.rCC : day.rOC;
+  const call = Math.abs(x) < strat.thr || !Number.isFinite(x) ? 0 : Math.sign(x);
+  const verdict = call === 0 ? ['No call (neutral)', 'mute'] : Math.sign(r) === call ? ['Signal sahi nikla ✓', 'good'] : ['Signal galat nikla ✗', 'bad'];
+  return h('div', { class: 'grid g3', style: 'margin-top:8px' }, stat('Open', day.o.toFixed(0)), stat('Close', day.c.toFixed(0)), stat('Open→Close', pct(day.rOC, 2), cls(day.rOC)),
+    h('div', { style: 'grid-column:1/-1' }, h('b', { class: verdict[1] }, `Actual: ${verdict[0]}`), h('span', { class: 'note' }, ` · High ${day.h.toFixed(0)} · Low ${day.l.toFixed(0)}`)));
 }
 
 function fmtHour(hh) { const H = Math.floor(hh), M = Math.round((hh - H) * 60); return `${String(H).padStart(2, '0')}:${String(M).padStart(2, '0')}`; }
@@ -217,6 +236,10 @@ async function viewBacktest(host) {
       h('div', {}, h('label', {}, 'Cost (bps / unit turnover)'), h('input', { type: 'number', step: '0.5', value: st.costBps, onchange: set('costBps', parseFloat) })),
       h('div', {}, h('label', {}, 'Position scale (z for full size)'), h('input', { type: 'number', step: '0.1', value: st.posScale, onchange: set('posScale', parseFloat) })),
       h('div', {}, h('label', {}, 'Long only'), h('select', { onchange: set('longOnly', (v) => v === 'yes') }, h('option', { value: 'no', selected: !st.longOnly }, 'no (long & short)'), h('option', { value: 'yes', selected: st.longOnly }, 'yes')))),
+    h('div', { class: 'grid g2', style: 'margin-top:6px' },
+      h('div', {}, h('label', {}, 'Result from (date)'), h('input', { type: 'date', value: app.btRange.from, onchange: (e) => { app.btRange.from = e.target.value; store.set('btRange', app.btRange); app.bt = null; } })),
+      h('div', {}, h('label', {}, 'Result to (date)'), h('input', { type: 'date', value: app.btRange.to, onchange: (e) => { app.btRange.to = e.target.value; store.set('btRange', app.btRange); app.bt = null; } }))),
+    h('p', { class: 'note' }, 'Khali chhodo = poora out-of-sample period. Date range sirf yeh badalti hai ki kin dino ka result dikhe; model hamesha un dino se pehle ke data se hi seekhta hai.'),
     h('div', { style: 'margin-top:12px' }, h('button', { class: 'btn', id: 'runBt' }, 'Run walk-forward backtest')),
     h('p', { class: 'note' }, 'Har din ka signal sirf us din se pehle ke data par seekhe weights se banta hai (expanding window, har block pe re-estimate). Isliye result out-of-sample hai.')));
   const out = h('div', {}); host.append(out);
@@ -224,10 +247,10 @@ async function viewBacktest(host) {
     out.innerHTML = ''; const holder = h('div', { class: 'card' }); out.append(holder); const pr = progressUI(holder);
     try {
       const m = await ensureModels(pr); holder.remove();
-      const bt = runBacktest(m.ds.days, m.fast.S, m.slow.S, st);
+      const bt = runBacktest(m.ds.days, m.fast.S, m.slow.S, st, { from: app.btRange.from, to: app.btRange.to });
       const inF = Float64Array.from(inSampleScores(m.fast.state)), inS = Float64Array.from(inSampleScores(m.slow.state));
       for (let t = 0; t < s.warmupDays; t++) { inF[t] = NaN; inS[t] = NaN; }
-      const ins = runBacktest(m.ds.days, inF, inS, st, { shiftTrials: 0 });
+      const ins = runBacktest(m.ds.days, inF, inS, st, { shiftTrials: 0, from: app.btRange.from, to: app.btRange.to });
       app.bt = { bt, ins }; renderBt(out, m, bt, ins);
     } catch (e) { holder.innerHTML = ''; holder.append(h('b', { class: 'bad' }, 'Backtest failed'), h('p', { class: 'note' }, e.message)); }
   };
@@ -241,7 +264,7 @@ function renderBt(out, m, bt, ins) {
   if (!a) { out.append(h('div', { class: 'card' }, 'No signals generated — not enough history after warm-up.')); return; }
   const verdict = sh ? (sh.p < 0.05 ? ['Statistically unusual vs. misaligned-shift test', 'good'] : ['Not distinguishable from chance yet', 'warn']) : ['—', 'mute'];
   out.append(h('div', { class: 'card' },
-    h('div', { class: 'note' }, `Out-of-sample: ${bt.dates[bt.pos.findIndex((v) => Number.isFinite(v))]} → ${bt.dates[bt.dates.length - 1]} (${a.days} days)`),
+    h('div', { class: 'note' }, `Out-of-sample: ${a.curve[0][0]} → ${a.curve[a.curve.length - 1][0]} (${a.days} days)`),
     h('div', { class: 'grid g3', style: 'margin-top:8px' },
       stat('Sharpe', a.sharpe.toFixed(2), cls(a.sharpe)), stat('CAGR', pct(a.cagr), cls(a.cagr)), stat('Max DD', pct(a.maxDD), 'bad'),
       stat('Total', pct(a.totalReturn, 0), cls(a.totalReturn)), stat('Hit rate', pct(a.hitRate), ''), stat('Exposure', pct(a.exposure, 0), '')),
@@ -253,6 +276,48 @@ function renderBt(out, m, bt, ins) {
   requestAnimationFrame(() => drawCurve(cv, a.curve, b ? b.curve : null));
   out.append(h('div', { class: 'card scroll' }, h('small', { class: 'mute' }, 'Year by year'), h('table', {}, h('thead', {}, h('tr', {}, ['Year', 'Return', 'Days'].map((x) => h('th', {}, x)))),
     h('tbody', {}, bt.yearly.map((y) => h('tr', {}, h('td', {}, y.year), h('td', { class: cls(y.ret) }, pct(y.ret)), h('td', {}, y.n)))))));
+  out.append(dayLog(m, bt));
+}
+
+// Day-by-day table so every result can be checked by hand against a chart / your own kundali.
+function dayLog(m, bt) {
+  const st = app.settings.strategy, days = m.ds.days;
+  const xf = normaliseScores(m.fast.S), xs = normaliseScores(m.slow.S);
+  const idx = []; for (let t = 0; t < days.length; t++) if (Number.isFinite(bt.pos[t])) idx.push(t);
+  const newest = idx.slice().reverse();
+  let shown = 30;
+  const body = h('tbody', {}), more = h('button', { class: 'btn ghost' }, 'Show 30 more');
+  const rowFor = (t) => {
+    const d = days[t], moon = snapshotFor(d.d, app.settings).planets.Moon, [lab, lc] = labelOf(bt.x[t], st.thr), p = bt.pos[t], pl = bt.pnl[t];
+    return h('tr', {}, h('td', {}, d.d), h('td', {}, `${NAKSHATRAS[moon.nak].slice(0, 8)} ${moon.pada}`), h('td', { class: cls(xf[t]) }, sgn(xf[t] || 0)), h('td', { class: cls(xs[t]) }, sgn(xs[t] || 0)),
+      h('td', {}, h('b', { class: lc }, lab)), h('td', {}, p.toFixed(2)), h('td', {}, d.o.toFixed(0)), h('td', {}, d.c.toFixed(0)), h('td', { class: cls(d.rOC) }, pct(d.rOC, 2)), h('td', { class: cls(pl) }, pct(pl, 2)));
+  };
+  const draw = () => { body.replaceChildren(...newest.slice(0, shown).map(rowFor)); more.hidden = shown >= newest.length; };
+  more.addEventListener('click', () => { shown += 30; draw(); }); draw();
+
+  const exportCsv = async () => {
+    toast('Preparing CSV…', 30000);
+    await tick();
+    const head = ['date', 'weekday', 'open', 'high', 'low', 'close', 'open_to_close', 'fast_z', 'slow_z', 'signal_z', 'position', 'strategy_pnl']
+      .concat(PLANETS.flatMap((p) => [`${p}_rashi`, `${p}_deg`, `${p}_nakshatra`, `${p}_pada`, `${p}_house`]));
+    const lines = [head.join(',')];
+    for (const t of idx) {
+      const d = days[t], sn = snapshotFor(d.d, app.settings);
+      const row = [d.d, ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(d.d + 'T00:00:00Z').getUTCDay()], d.o, d.h, d.l, d.c, d.rOC.toFixed(5), (xf[t] || 0).toFixed(3), (xs[t] || 0).toFixed(3), bt.x[t].toFixed(3), bt.pos[t].toFixed(3), bt.pnl[t].toFixed(5)];
+      for (const p of PLANETS) { const q = sn.planets[p]; row.push(RASHIS[q.rashi], q.degInSign.toFixed(2), NAKSHATRAS[q.nak], q.pada, q.house); }
+      lines.push(row.join(','));
+    }
+    const text = lines.join('\n'), file = new File([text], `astro-backtest-${app.inst}.csv`, { type: 'text/csv' });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return; }
+    } catch { /* user cancelled or unsupported: fall through to download */ }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; document.body.append(a); a.click(); a.remove();
+  };
+  const exportAndClear = async () => { try { await exportCsv(); } finally { $('#toast').hidden = true; } };
+  return h('div', {}, h('h2', {}, 'Day-by-day log (naya din upar)'),
+    h('div', { class: 'card scroll' }, h('table', {}, h('thead', {}, h('tr', {}, ['Date', 'Moon', 'Fast', 'Slow', 'Signal', 'Pos', 'Open', 'Close', 'O→C', 'P&L'].map((x) => h('th', {}, x)))), body),
+      h('div', { class: 'row', style: 'margin-top:10px' }, more, h('button', { class: 'btn ghost', onclick: exportAndClear }, 'Export CSV (Excel/Sheets)')),
+      h('p', { class: 'note' }, 'Kisi bhi row ki date Aaj tab ke date-picker me daalo — wahan us din ke saare planet positions, aspects aur Sarvatobhadra dikhenge. CSV me har din ke 9 grahon ke rashi/degree/nakshatra/pada/house bhi hain, taaki Excel me apne observations se match kar sako.')));
 }
 
 function drawCurve(cv, a, b) {

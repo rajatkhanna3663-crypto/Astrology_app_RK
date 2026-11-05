@@ -116,10 +116,11 @@ export function yearly(days, pnl) {
   return Object.entries(by).map(([y, v]) => ({ year: y, ret: v.eq - 1, n: v.n }));
 }
 
-export function runBacktest(days, Sfast, Sslow, strat, { shiftTrials = 200 } = {}) {
+export function runBacktest(days, Sfast, Sslow, strat, { shiftTrials = 200, from = '', to = '' } = {}) {
   const dates = days.map((d) => d.d);
-  const x = combineSignal(Sfast, Sslow, strat);
+  const x = combineSignal(Sfast, Sslow, strat); // normalised on ALL past scores (no look-ahead), then we only evaluate inside [from,to]
   const pos = makePositions(x, strat);
+  for (let t = 0; t < pos.length; t++) if ((from && dates[t] < from) || (to && dates[t] > to)) pos[t] = NaN;
   const pnl = pnlSeries(days, pos, strat);
   const first = pos.findIndex((v) => Number.isFinite(v));
   // buy & hold over the same window

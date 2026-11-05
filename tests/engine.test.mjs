@@ -67,3 +67,18 @@ test('walk-forward uses no future data: changing the last year does not change e
     else assert.ok(!Number.isFinite(B[t]));
   }
 });
+
+test('date range only changes which days are evaluated, not the signals', { timeout: 300000 }, () => {
+  const bars = synthBars(1600, truth, 8);
+  const ds = buildDataset(bars, settings, []);
+  const fast = walkForward(ds, settings, [], 'fast');
+  const strat = { ...settings.strategy, mode: 'fast' };
+  const full = runBacktest(ds.days, fast.S, null, strat, { shiftTrials: 0 });
+  const from = ds.days[900].d, to = ds.days[1200].d;
+  const part = runBacktest(ds.days, fast.S, null, strat, { shiftTrials: 0, from, to });
+  for (let t = 0; t < ds.days.length; t++) {
+    const inRange = ds.days[t].d >= from && ds.days[t].d <= to;
+    if (inRange) assert.equal(part.pos[t], full.pos[t]); else assert.ok(!Number.isFinite(part.pos[t]));
+  }
+  assert.equal(part.strategy.days, 301);
+});

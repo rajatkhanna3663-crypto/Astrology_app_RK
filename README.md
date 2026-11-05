@@ -24,6 +24,11 @@ Do layers: **Fast** (open→close of the day) aur **Slow** (agle ~20 trading day
 
 Backtest tab me: out-of-sample Sharpe/CAGR/DD, buy&hold, direction accuracy, **circular-shift p-value** (kya same positions misaligned returns par bhi itne hi achhe lagte?), aur **in-sample vs out-of-sample** gap (overfit check). Itne saare factors/features ke saath overfit asaani se ho jata hai — OOS number hi sach hai.
 
+## Dates badalna aur manually match karna
+- **Backtest tab → Result from / to**: koi bhi date range chuno; result sirf un dino ka dikhega (model fir bhi har din sirf usse pehle ke data se seekha hota hai).
+- **Day-by-day log**: har din ka Moon nakshatra, fast/slow signal, position, open/close, P&L. "Export CSV" me 9 grahon ke rashi/degree/nakshatra/pada/house bhi hote hain — Excel me apne observations se match karo.
+- **Aaj tab → date picker**: koi bhi purani date daalo — us din ka chart, aspects, Sarvatobhadra, model ka out-of-sample signal aur asal market move ek saath dikhta hai.
+
 ## iPhone par chalana
 **Option A (recommended): GitHub Pages**
 1. Repo Settings → Pages → Source: *GitHub Actions*. `main` par push / manual run karo.
