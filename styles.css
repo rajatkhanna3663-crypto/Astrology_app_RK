@@ -40,3 +40,4 @@ svg.kc,svg.kc *{-webkit-touch-callout:none;-webkit-user-select:none;user-select:
 .menu[hidden]{display:none}.menu h4{margin:2px 4px 8px;font-size:13px;color:var(--mute);font-weight:600}
 .menu button{display:block;width:100%;text-align:left;border:0;background:var(--chip);color:var(--ink);padding:13px 14px;border-radius:11px;font-size:16px;margin-top:6px}
 .menu button.cancel{background:none;color:var(--mute);text-align:center}
+.lp{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;cursor:pointer}td.lp{color:var(--accent)}

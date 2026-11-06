@@ -4,7 +4,7 @@ Simple Vedic kundli viewer for iPhone (PWA, no build step).
 
 - **D1 (Rashi) + D9 (Navamsa)**, North Indian style
 - **Time control**: ◀ ▶ step by Min / Hour / Day / Week / Month / Year (× 1–30), hold to repeat, tap the date to pick, **Now**
-- **Rotate the chart**: long-press a house or graha in the chart -> menu: make that house Lagna, or make that graha Lagna (Reset to go back)
+- **Rotate the chart**: long-press a graha name or a house number in the table -> make that graha / house Lagna (Reset to go back)
 - Table: house, rashi, degree, nakshatra + pada, D9 rashi/house, retro for every graha
 - **Ayanamsa: Lahiri**; place chosen from a list of cities/countries (DST and historic time zones handled)
 

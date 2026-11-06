@@ -61,8 +61,8 @@ function update() {
   }).join('');
 
   const r1 = houseGrid(ch, 'D1', rot).ref, r9 = houseGrid(ch, 'D9', rot).ref;
-  const row = (name, o, retro) => `<tr><td><b>${name}</b></td><td>${RASHIS[o.rashi]}</td><td>${fmtDeg(o.deg)}</td><td>${NAKSHATRAS[o.nak]} ${o.pada}</td><td>${houseOf(o.rashi, r1)}</td><td>${RASHIS[o.d9]}</td><td>${houseOf(o.d9, r9)}</td><td>${retro ? 'R' : ''}</td></tr>`;
-  $('table').innerHTML = `<thead><tr><th>Graha</th><th>Rashi</th><th>Deg</th><th>Nakshatra · pada</th><th>H</th><th>Navamsa</th><th>H</th><th></th></tr></thead><tbody>${row('Lagna', ch.asc, false)}${PLANETS.map((p) => row(p, ch.planets[p], ch.planets[p].retro)).join('')}</tbody>`;
+  const row = (name, o, retro, lag) => `<tr><td${lag ? '' : ` class="lp" data-act="planet" data-planet="${name}"`}><b>${name}</b></td><td>${RASHIS[o.rashi]}</td><td>${fmtDeg(o.deg)}</td><td>${NAKSHATRAS[o.nak]} ${o.pada}</td><td${lag ? '' : ` class="lp" data-act="house" data-house="${houseOf(o.rashi, r1)}"`}>${houseOf(o.rashi, r1)}</td><td>${RASHIS[o.d9]}</td><td${lag ? '' : ` class="lp" data-act="house" data-house="${houseOf(o.d9, r9)}"`}>${houseOf(o.d9, r9)}</td><td>${retro ? 'R' : ''}</td></tr>`;
+  $('table').innerHTML = `<thead><tr><th>Graha</th><th>Rashi</th><th>Deg</th><th>Nakshatra · pada</th><th>H</th><th>Navamsa</th><th>H</th><th></th></tr></thead><tbody>${row('Lagna', ch.asc, false, true)}${PLANETS.map((p) => row(p, ch.planets[p], ch.planets[p].retro)).join('')}</tbody>`;
   save();
 }
 
@@ -70,21 +70,20 @@ function update() {
 const menu = $('menu');
 const closeMenu = () => { menu.hidden = true; };
 function openMenu(el) {
-  const planet = el.dataset.planet, k = +el.dataset.house, opts = [];
+  const planet = el.dataset.act === 'planet' ? el.dataset.planet : '', k = +el.dataset.house, opts = [];
   const set = (base, h) => () => { S.base = base; S.house = h; closeMenu(); update(); };
-  if (k > 1) opts.push([`House ${k} ko Lagna banao`, set(S.base, ((S.house - 1 + k - 1) % 12) + 1)]);
-  const names = planet ? [planet] : (el.dataset.in || '').split(',').filter(Boolean);
-  for (const n of names) if (n !== 'Asc') opts.push([`${n} ko Lagna banao`, set(n, 1)]);
+  if (planet) opts.push([`${planet} ko Lagna banao`, set(planet, 1)]);
+  else opts.push([`House ${k} ko Lagna banao`, set(S.base, ((S.house - 1 + k - 1) % 12) + 1)]);
   opts.push(['Original chart (Reset)', set('Lagna', 1)]);
-  menu.innerHTML = `<h4>${planet ? planet + ' · ' : ''}House ${k}</h4>`;
+  menu.innerHTML = `<h4>${planet || 'House ' + k}</h4>`;
   for (const [label, fn] of opts) { const b = document.createElement('button'); b.textContent = label; b.onclick = fn; menu.append(b); }
   const c = document.createElement('button'); c.className = 'cancel'; c.textContent = 'Cancel'; c.onclick = closeMenu; menu.append(c);
   menu.hidden = false;
 }
 let lp = null;
-const charts = $('charts');
+const charts = $('table');
 charts.addEventListener('pointerdown', (e) => {
-  const t = e.target.closest('[data-planet],[data-house]'); if (!t) return;
+  const t = e.target.closest('.lp'); if (!t) return;
   const x0 = e.clientX, y0 = e.clientY; clearTimeout(lp);
   lp = setTimeout(() => { lp = null; if (navigator.vibrate) navigator.vibrate(15); openMenu(t); }, 450);
   const cancel = (ev) => { if (ev.type === 'pointermove' && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 10) return; clearTimeout(lp); for (const n of ['pointermove', 'pointerup', 'pointercancel']) charts.removeEventListener(n, cancel); };
@@ -92,7 +91,7 @@ charts.addEventListener('pointerdown', (e) => {
 });
 charts.addEventListener('contextmenu', (e) => e.preventDefault());
 $('reset').onclick = () => { S.base = 'Lagna'; S.house = 1; update(); };
-document.addEventListener('pointerdown', (e) => { if (!menu.hidden && !menu.contains(e.target) && !e.target.closest('#charts')) closeMenu(); });
+document.addEventListener('pointerdown', (e) => { if (!menu.hidden && !menu.contains(e.target) && !e.target.closest('#table')) closeMenu(); });
 
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 update();
