@@ -1,7 +1,6 @@
 {
-  "name": "Astro Signal Lab",
-  "short_name": "Astro Lab",
-  "description": "Vedic + western astro signal engine with walk-forward backtesting",
+  "name": "Kundli",
+  "short_name": "Kundli",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

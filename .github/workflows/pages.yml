@@ -1,9 +1,7 @@
-name: Deploy Astro Lab (GitHub Pages)
+name: Deploy Kundli (GitHub Pages)
 on:
   push: { branches: [main] }
   workflow_dispatch:
-  schedule:
-    - cron: '30 11 * * 1-5'   # weekdays 17:00 IST, after the NSE close
 permissions: { contents: read, pages: write, id-token: write }
 concurrency: { group: pages, cancel-in-progress: true }
 jobs:
@@ -15,7 +13,6 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm test
-      - run: node tools/fetch-data.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with: { path: . }
