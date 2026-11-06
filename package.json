@@ -1,12 +1,8 @@
 {
-  "name": "auto-astro-backtesting-app",
-  "version": "0.1.0",
+  "name": "kundli",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Vedic + western astro signal engine: monitor, walk-forward backtest and self-adjusting factor weights for Indian indices (Bank Nifty). iOS-friendly PWA.",
-  "scripts": {
-    "test": "node --test tests/*.test.mjs",
-    "serve": "node tools/serve.mjs",
-    "icons": "node tools/make-icons.mjs"
-  }
+  "description": "Simple Vedic kundli viewer (D1 + D9, North Indian) with time control. iPhone PWA.",
+  "scripts": { "test": "node --test tests/*.test.mjs", "serve": "node tools/serve.mjs" }
 }

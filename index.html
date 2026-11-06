@@ -3,35 +3,40 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Astro Signal Lab</title>
-<meta name="description" content="Vedic + western astro signal engine with walk-forward backtesting for Bank Nifty">
+<title>Kundli</title>
 <meta name="theme-color" content="#0f1220">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Astro Lab">
+<meta name="apple-mobile-web-app-title" content="Kundli">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<header class="top">
-  <div class="brand"><span class="logo">☽</span><div><b>Astro Signal Lab</b><small id="instLabel">Bank Nifty</small></div></div>
-  <div id="statusPill" class="pill">loading…</div>
-</header>
-
-<main id="view"></main>
-
-<nav class="tabs" id="tabs">
-  <button data-tab="today" class="on"><i>☉</i>Aaj</button>
-  <button data-tab="backtest"><i>📈</i>Backtest</button>
-  <button data-tab="weights"><i>⚖︎</i>Weights</button>
-  <button data-tab="rules"><i>✎</i>Rules</button>
-  <button data-tab="data"><i>⚙︎</i>Data</button>
-</nav>
-
-<div id="toast" class="toast" hidden></div>
+<div class="bar">
+  <div class="row">
+    <button id="back" class="kb" aria-label="Step back">◀</button>
+    <label class="when"><b id="when"></b><small id="whenSub"></small><input id="dt" type="datetime-local" aria-label="Date and time"></label>
+    <button id="fwd" class="kb" aria-label="Step forward">▶</button>
+  </div>
+  <div class="row">
+    <div class="seg" id="units"></div>
+    <select id="amount" aria-label="Step amount"></select>
+    <button id="now" class="kb small">Now</button>
+  </div>
+</div>
+<main>
+  <section class="card">
+    <label>Place</label><select id="place"></select>
+    <div class="row between"><span class="note" id="rotNote"></span><button id="reset" class="kb small">Reset</button></div>
+    <p class="note">Neeche table me kisi <b>planet ke naam</b> ya <b>house number</b> par <b>long press</b> karo: us planet ya house ko Lagna bana ke chart rotate hoga.</p>
+  </section>
+  <div id="charts"></div>
+  <section class="card scroll"><table id="table"></table><p class="note">H = house from the chart's current Lagna. R = retrograde. Ayanamsa: Lahiri. Rahu/Ketu: mean node.</p></section>
+</main>
+<div id="menu" class="menu" hidden></div>
 <script src="vendor/astronomy.browser.min.js"></script>
 <script type="module" src="src/app.js"></script>
 </body>
