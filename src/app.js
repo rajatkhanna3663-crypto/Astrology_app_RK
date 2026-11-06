@@ -11,7 +11,7 @@ const KEY = 'kundli-state';
 
 let S = { utc: clampUtc(Date.now()), city: CITIES.findIndex((c) => c[1] === 'Mumbai'), unit: 'hour', n: 1, base: 'Lagna', house: 1 };
 try { Object.assign(S, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch { /* private mode */ }
-if (!CITIES[S.city] || !ROT_BASES.includes(S.base) || !(S.house >= 1 && S.house <= 12) || !UNITS.some((u) => u[0] === S.unit) || !Number.isFinite(S.utc)) S = { ...S, utc: clampUtc(Date.now()), city: 0, unit: 'hour', n: 1, base: 'Lagna', house: 1 };
+if (!CITIES[S.city] || !(ROT_BASES.includes(S.base) || (S.base === 'Fixed' && Array.isArray(S.fix) && S.fix.length === 2)) || !(S.house >= 1 && S.house <= 12) || !UNITS.some((u) => u[0] === S.unit) || !Number.isFinite(S.utc)) S = { ...S, utc: clampUtc(Date.now()), city: 0, unit: 'hour', n: 1, base: 'Lagna', house: 1 };
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { /* ignore */ } };
 const place = () => { const c = CITIES[S.city]; return { name: `${c[1]}, ${c[0]}`, lat: c[2], lon: c[3], zone: c[4] }; };
 const fmtDeg = (d) => `${Math.floor(d)}°${String(Math.floor((d % 1) * 60)).padStart(2, '0')}′`;
@@ -46,7 +46,7 @@ $('amount').onchange = (e) => { S.n = +e.target.value; update(); };
 placeSel.onchange = (e) => { S.city = +e.target.value; update(); };
 
 function update() {
-  const pl = place(), ch = computeChart(S.utc, pl.lat, pl.lon), rot = { base: S.base, house: S.house };
+  const pl = place(), ch = computeChart(S.utc, pl.lat, pl.lon), rot = { base: S.base, house: S.house, fix: S.fix };
   const inp = toInputValue(S.utc, pl.zone), [d, t] = inp.split('T'), [y, m, dd] = d.split('-').map(Number);
   $('when').textContent = `${String(dd).padStart(2, '0')} ${MONTHS[m - 1]} ${y} · ${t}`;
   const wd = new Date(Date.UTC(y, m - 1, dd)).getUTCDay();
@@ -60,20 +60,21 @@ function update() {
     return `<section class="card"><h3>${k === 'D1' ? 'D1 · Rashi' : 'D9 · Navamsa'}<small>Lagna ${RASHIS[k === 'D1' ? a.rashi : a.d9]}${k === 'D1' ? ' ' + fmtDeg(a.deg) : ''}</small></h3>${chartSVG(grid, `${k} chart`)}</section>`;
   }).join('');
 
-  const r1 = houseGrid(ch, 'D1', rot).ref, r9 = houseGrid(ch, 'D9', rot).ref;
+  const r1 = houseGrid(ch, 'D1', rot).ref, r9 = houseGrid(ch, 'D9', rot).ref; last.r1 = r1; last.r9 = r9;
   const row = (name, o, retro, lag) => `<tr><td${lag ? '' : ` class="lp" data-act="planet" data-planet="${name}"`}><b>${name}</b></td><td>${RASHIS[o.rashi]}</td><td>${fmtDeg(o.deg)}</td><td>${NAKSHATRAS[o.nak]} ${o.pada}</td><td${lag ? '' : ` class="lp" data-act="house" data-house="${houseOf(o.rashi, r1)}"`}>${houseOf(o.rashi, r1)}</td><td>${RASHIS[o.d9]}</td><td${lag ? '' : ` class="lp" data-act="house" data-house="${houseOf(o.d9, r9)}"`}>${houseOf(o.d9, r9)}</td><td>${retro ? 'R' : ''}</td></tr>`;
   $('table').innerHTML = `<thead><tr><th>Graha</th><th>Rashi</th><th>Deg</th><th>Nakshatra · pada</th><th>H</th><th>Navamsa</th><th>H</th><th></th></tr></thead><tbody>${row('Lagna', ch.asc, false, true)}${PLANETS.map((p) => row(p, ch.planets[p], ch.planets[p].retro)).join('')}</tbody>`;
   save();
 }
 
 // ---- long press on a house / graha -> rotate menu (by house or by planet)
-const menu = $('menu');
+const menu = $('menu'), last = { r1: 0, r9: 0 };
 const closeMenu = () => { menu.hidden = true; };
 function openMenu(el) {
   const planet = el.dataset.act === 'planet' ? el.dataset.planet : '', k = +el.dataset.house, opts = [];
   const set = (base, h) => () => { S.base = base; S.house = h; closeMenu(); update(); };
+  const lock = () => { S.fix = [(last.r1 + k - 1) % 12, (last.r9 + k - 1) % 12]; S.base = 'Fixed'; S.house = 1; closeMenu(); update(); };
   if (planet) opts.push([`${planet} ko Lagna banao`, set(planet, 1)]);
-  else opts.push([`House ${k} ko Lagna banao`, set(S.base, ((S.house - 1 + k - 1) % 12) + 1)]);
+  else opts.push([`House ${k} ko Lagna banao (time badalne par bhi wahi)`, lock]);
   opts.push(['Original chart (Reset)', set('Lagna', 1)]);
   menu.innerHTML = `<h4>${planet || 'House ' + k}</h4>`;
   for (const [label, fn] of opts) { const b = document.createElement('button'); b.textContent = label; b.onclick = fn; menu.append(b); }

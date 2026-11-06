@@ -54,6 +54,15 @@ test('rotation by house and by graha', () => {
   assert.equal(refRashi(ch, 'D1', { base: 'Lagna', house: 4 }), (ch.asc.rashi + 3) % 12);
 });
 
+test('locked house stays Lagna while time moves; planet Lagna follows the planet', () => {
+  const t0 = Date.parse('2026-11-06T13:15:00Z'), t1 = stepTime(t0, 'UTC', 'day', 20);
+  const a = computeChart(t0, 19.076, 72.8777), b = computeChart(t1, 19.076, 72.8777);
+  const fix = [(a.asc.rashi + 3) % 12, (a.asc.d9 + 3) % 12], rot = { base: 'Fixed', fix, house: 1 };
+  assert.equal(houseGrid(a, 'D1', rot).grid[0].rashi, fix[0]); assert.equal(houseGrid(b, 'D1', rot).grid[0].rashi, fix[0]);
+  assert.equal(houseGrid(b, 'D9', rot).grid[0].rashi, fix[1]);
+  assert.equal(houseGrid(b, 'D1', { base: 'Moon', house: 1 }).grid[0].rashi, b.planets.Moon.rashi);
+});
+
 test('time zones: DST-aware, historical, round trip; stepping is wall-clock', () => {
   assert.equal(offsetMs(Date.parse('2026-07-01T12:00:00Z'), 'America/New_York'), -4 * 3600000);
   assert.equal(offsetMs(Date.parse('2026-01-01T12:00:00Z'), 'America/New_York'), -5 * 3600000);

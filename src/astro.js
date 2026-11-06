@@ -63,6 +63,7 @@ export function computeChart(utc, lat, lon) {
 export const houseOf = (rashi, ref) => ((rashi - ref + 12) % 12) + 1;
 export function refRashi(chart, kind, rot) {
   const sign = (o) => (kind === 'D9' ? o.d9 : o.rashi);
+  if (rot.base === 'Fixed') return rot.fix[kind === 'D9' ? 1 : 0]; // a rashi locked as Lagna: stays put while time moves
   const base = rot.base === 'Lagna' ? sign(chart.asc) : sign(chart.planets[rot.base]);
   return (base + rot.house - 1) % 12;
 }
@@ -77,6 +78,7 @@ export function houseGrid(chart, kind, rot) {
   return { ref, grid };
 }
 export function describeRotation(rot) {
+  if (rot.base === 'Fixed') return `${RASHIS[rot.fix[0]]} (D1) / ${RASHIS[rot.fix[1]]} (D9) locked as Lagna`;
   if (rot.base === 'Lagna') return rot.house === 1 ? 'Original chart (Lagna)' : `House ${rot.house} as Lagna`;
   return rot.house === 1 ? `${rot.base} as Lagna` : `House ${rot.house} from ${rot.base} as Lagna`;
 }
