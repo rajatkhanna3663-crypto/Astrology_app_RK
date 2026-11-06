@@ -30,15 +30,13 @@
 <main>
   <section class="card">
     <label>Place</label><select id="place"></select>
-    <div class="two">
-      <div><label>Rotate chart from</label><select id="base"></select></div>
-      <div><label>House as Lagna</label><select id="house"></select></div>
-    </div>
-    <p class="note" id="rotNote"></p>
+    <div class="row between"><span class="note" id="rotNote"></span><button id="reset" class="kb small">Reset</button></div>
+    <p class="note">Chart ke kisi house ya planet par <b>long press</b> karo: house ya planet ko Lagna bana ke rotate karne ka menu aayega.</p>
   </section>
   <div id="charts"></div>
   <section class="card scroll"><table id="table"></table><p class="note">H = house from the chart's current Lagna. R = retrograde. Ayanamsa: Lahiri. Rahu/Ketu: mean node.</p></section>
 </main>
+<div id="menu" class="menu" hidden></div>
 <script src="vendor/astronomy.browser.min.js"></script>
 <script type="module" src="src/app.js"></script>
 </body>

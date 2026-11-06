@@ -17,7 +17,7 @@ const LINES = 'M0 0H400V400H0Z M0 0L400 400 M400 0L0 400 M200 0L400 200L200 400L
 const perRow = (kind, n) => (kind === 'dia' ? (n <= 3 ? 1 : n <= 6 ? 2 : 3) : kind === 'h' ? (n <= 1 ? 1 : n <= 4 ? 2 : 3) : n <= 6 ? 1 : 2);
 const width = (it) => 42 + (it.retro ? 7 : 0);
 
-function place(items, at, kind) {
+function place(items, at, kind, house) {
   if (!items.length) return '';
   const pr = perRow(kind, items.length), rows = [];
   for (let i = 0; i < items.length; i += pr) rows.push(items.slice(i, i + pr));
@@ -27,7 +27,7 @@ function place(items, at, kind) {
     const total = row.reduce((a, it) => a + width(it), 0);
     let x = Math.min(398 - total, Math.max(2, at[0] - total / 2));
     for (const it of row) {
-      out += `<text class="pl pl-${it.cls}" x="${x.toFixed(1)}" y="${(y0 + ri * 17).toFixed(1)}" dy=".35em">${it.abbr}<tspan class="dg" dx="2">${Math.floor(it.deg)}°</tspan>${it.retro ? '<tspan class="fl" dx="1">R</tspan>' : ''}</text>`;
+      out += `<rect class="hit" data-planet="${it.cls}" data-house="${house}" x="${(x - 2).toFixed(1)}" y="${(y0 + ri * 17 - 9).toFixed(1)}" width="${width(it)}" height="18"/><text class="pl pl-${it.cls}" data-planet="${it.cls}" data-house="${house}" x="${x.toFixed(1)}" y="${(y0 + ri * 17).toFixed(1)}" dy=".35em">${it.abbr}<tspan class="dg" dx="2">${Math.floor(it.deg)}°</tspan>${it.retro ? '<tspan class="fl" dx="1">R</tspan>' : ''}</text>`;
       x += width(it);
     }
   });
@@ -38,9 +38,9 @@ export function chartSVG(grid, label) {
   let fill = '', nums = '', items = '';
   grid.forEach((g, i) => {
     const L = NORTH[i];
-    fill += `<polygon class="hs${i === 0 ? ' h1' : ''}" points="${L.poly}"/>`;
+    fill += `<polygon class="hs${i === 0 ? ' h1' : ''}" data-house="${g.house}" data-in="${g.items.map((x) => x.cls).join(',')}" points="${L.poly}"/>`;
     nums += `<text class="num${i === 0 ? ' n1' : ''}" x="${L.num[0]}" y="${L.num[1]}" dy=".35em" text-anchor="middle">${g.rashi + 1}</text>`;
-    items += place(g.items, L.at, L.kind);
+    items += place(g.items, L.at, L.kind, g.house);
   });
   return `<svg class="kc" viewBox="0 0 400 400" role="img" aria-label="${label}">${fill}<path class="ln" d="${LINES}"/>${nums}${items}</svg>`;
 }

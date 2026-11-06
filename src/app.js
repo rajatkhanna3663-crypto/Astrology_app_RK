@@ -23,8 +23,6 @@ for (const country of [...new Set(CITIES.map((c) => c[0]))]) {
   CITIES.forEach((c, i) => { if (c[0] === country) g.append(new Option(c[1], i)); });
   placeSel.append(g);
 }
-$('base').append(...ROT_BASES.map((b) => new Option(b, b)));
-$('house').append(...Array.from({ length: 12 }, (_, i) => new Option(`House ${i + 1}`, i + 1)));
 $('amount').append(...[1, 2, 3, 5, 10, 15, 30].map((n) => new Option(`× ${n}`, n)));
 const unitBtns = UNITS.map(([u, label]) => { const b = document.createElement('button'); b.textContent = label; b.onclick = () => { S.unit = u; update(); }; $('units').append(b); return b; });
 
@@ -46,8 +44,6 @@ $('now').onclick = () => { S.utc = clampUtc(Date.now()); update(); };
 $('dt').onchange = (e) => { const t = fromInputValue(e.target.value, place().zone); if (Number.isFinite(t)) S.utc = clampUtc(t); update(); };
 $('amount').onchange = (e) => { S.n = +e.target.value; update(); };
 placeSel.onchange = (e) => { S.city = +e.target.value; update(); };
-$('base').onchange = (e) => { S.base = e.target.value; update(); };
-$('house').onchange = (e) => { S.house = +e.target.value; update(); };
 
 function update() {
   const pl = place(), ch = computeChart(S.utc, pl.lat, pl.lon), rot = { base: S.base, house: S.house };
@@ -55,7 +51,7 @@ function update() {
   $('when').textContent = `${String(dd).padStart(2, '0')} ${MONTHS[m - 1]} ${y} · ${t}`;
   const wd = new Date(Date.UTC(y, m - 1, dd)).getUTCDay();
   $('whenSub').textContent = `${DAYS[wd]} · ${tzLabel(S.utc, pl.zone)} · ${pl.name}`;
-  $('dt').value = inp; $('amount').value = S.n; placeSel.value = S.city; $('base').value = S.base; $('house').value = S.house;
+  $('dt').value = inp; $('amount').value = S.n; placeSel.value = S.city;
   unitBtns.forEach((b, i) => b.classList.toggle('on', UNITS[i][0] === S.unit));
   $('rotNote').textContent = describeRotation(rot);
 
@@ -69,6 +65,34 @@ function update() {
   $('table').innerHTML = `<thead><tr><th>Graha</th><th>Rashi</th><th>Deg</th><th>Nakshatra · pada</th><th>H</th><th>Navamsa</th><th>H</th><th></th></tr></thead><tbody>${row('Lagna', ch.asc, false)}${PLANETS.map((p) => row(p, ch.planets[p], ch.planets[p].retro)).join('')}</tbody>`;
   save();
 }
+
+// ---- long press on a house / graha -> rotate menu (by house or by planet)
+const menu = $('menu');
+const closeMenu = () => { menu.hidden = true; };
+function openMenu(el) {
+  const planet = el.dataset.planet, k = +el.dataset.house, opts = [];
+  const set = (base, h) => () => { S.base = base; S.house = h; closeMenu(); update(); };
+  if (k > 1) opts.push([`House ${k} ko Lagna banao`, set(S.base, ((S.house - 1 + k - 1) % 12) + 1)]);
+  const names = planet ? [planet] : (el.dataset.in || '').split(',').filter(Boolean);
+  for (const n of names) if (n !== 'Asc') opts.push([`${n} ko Lagna banao`, set(n, 1)]);
+  opts.push(['Original chart (Reset)', set('Lagna', 1)]);
+  menu.innerHTML = `<h4>${planet ? planet + ' · ' : ''}House ${k}</h4>`;
+  for (const [label, fn] of opts) { const b = document.createElement('button'); b.textContent = label; b.onclick = fn; menu.append(b); }
+  const c = document.createElement('button'); c.className = 'cancel'; c.textContent = 'Cancel'; c.onclick = closeMenu; menu.append(c);
+  menu.hidden = false;
+}
+let lp = null;
+const charts = $('charts');
+charts.addEventListener('pointerdown', (e) => {
+  const t = e.target.closest('[data-planet],[data-house]'); if (!t) return;
+  const x0 = e.clientX, y0 = e.clientY; clearTimeout(lp);
+  lp = setTimeout(() => { lp = null; if (navigator.vibrate) navigator.vibrate(15); openMenu(t); }, 450);
+  const cancel = (ev) => { if (ev.type === 'pointermove' && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 10) return; clearTimeout(lp); for (const n of ['pointermove', 'pointerup', 'pointercancel']) charts.removeEventListener(n, cancel); };
+  for (const n of ['pointermove', 'pointerup', 'pointercancel']) charts.addEventListener(n, cancel);
+});
+charts.addEventListener('contextmenu', (e) => e.preventDefault());
+$('reset').onclick = () => { S.base = 'Lagna'; S.house = 1; update(); };
+document.addEventListener('pointerdown', (e) => { if (!menu.hidden && !menu.contains(e.target) && !e.target.closest('#charts')) closeMenu(); });
 
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 update();

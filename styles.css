@@ -32,3 +32,11 @@ svg.kc{width:100%;height:auto;display:block;max-width:480px;margin:0 auto;user-s
 .kc .num{fill:var(--mute);font-size:12px}.kc .num.n1{fill:var(--accent);font-weight:700}
 .kc .pl{font-size:14px;font-weight:700}.kc .dg{font-size:10.5px;font-weight:500}.kc .fl{font-size:10.5px}
 .pl-Sun{fill:var(--Sun)}.pl-Moon{fill:var(--Moon)}.pl-Mars{fill:var(--Mars)}.pl-Mercury{fill:var(--Mercury)}.pl-Jupiter{fill:var(--Jupiter)}.pl-Venus{fill:var(--Venus)}.pl-Saturn{fill:var(--Saturn)}.pl-Rahu{fill:var(--Rahu)}.pl-Ketu{fill:var(--Ketu)}.pl-Asc{fill:var(--Asc)}
+
+.between{justify-content:space-between;margin-top:6px}.between .note{margin:0}
+svg.kc,svg.kc *{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.kc .hit{fill:transparent}
+.menu{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:20;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px;box-shadow:0 8px 30px rgba(0,0,0,.35);max-width:520px;margin:0 auto}
+.menu[hidden]{display:none}.menu h4{margin:2px 4px 8px;font-size:13px;color:var(--mute);font-weight:600}
+.menu button{display:block;width:100%;text-align:left;border:0;background:var(--chip);color:var(--ink);padding:13px 14px;border-radius:11px;font-size:16px;margin-top:6px}
+.menu button.cancel{background:none;color:var(--mute);text-align:center}
