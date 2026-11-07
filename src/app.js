@@ -83,16 +83,24 @@ function openMenu(el) {
 }
 let lp = null;
 const charts = $('table');
-charts.addEventListener('pointerdown', (e) => {
-  const t = e.target.closest('.lp'); if (!t) return;
-  const x0 = e.clientX, y0 = e.clientY; clearTimeout(lp);
-  lp = setTimeout(() => { lp = null; if (navigator.vibrate) navigator.vibrate(15); openMenu(t); }, 450);
-  const cancel = (ev) => { if (ev.type === 'pointermove' && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 10) return; clearTimeout(lp); for (const n of ['pointermove', 'pointerup', 'pointercancel']) charts.removeEventListener(n, cancel); };
-  for (const n of ['pointermove', 'pointerup', 'pointercancel']) charts.addEventListener(n, cancel);
-});
+// Touch events (not pointer events): iOS Safari fires pointercancel when its own long-press selection/callout starts.
+function armLongPress(target, x0, y0) {
+  clearTimeout(lp);
+  lp = setTimeout(() => { lp = null; if (navigator.vibrate) navigator.vibrate(15); openMenu(target); }, 450);
+  return (x, y) => { if (Math.hypot(x - x0, y - y0) > 10) { clearTimeout(lp); lp = null; } };
+}
+let moveCheck = null, suppressClick = false;
+charts.addEventListener('touchstart', (e) => {
+  const t = e.target.closest('.lp'); if (!t || e.touches.length !== 1) return;
+  moveCheck = armLongPress(t, e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: true });
+charts.addEventListener('touchmove', (e) => { if (moveCheck) moveCheck(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+for (const n of ['touchend', 'touchcancel']) charts.addEventListener(n, (e) => { clearTimeout(lp); moveCheck = null; if (menu.hidden === false && n === 'touchend') e.preventDefault(); });
+charts.addEventListener('mousedown', (e) => { const t = e.target.closest('.lp'); if (!t || e.button) return; const chk = armLongPress(t, e.clientX, e.clientY); const mv = (ev) => chk(ev.clientX, ev.clientY), up = () => { clearTimeout(lp); removeEventListener('mousemove', mv); removeEventListener('mouseup', up); }; addEventListener('mousemove', mv); addEventListener('mouseup', up); });
 charts.addEventListener('contextmenu', (e) => e.preventDefault());
 $('reset').onclick = () => { S.base = 'Lagna'; S.house = 1; update(); };
-document.addEventListener('pointerdown', (e) => { if (!menu.hidden && !menu.contains(e.target) && !e.target.closest('#table')) closeMenu(); });
+document.addEventListener('touchstart', (e) => { if (!menu.hidden && !menu.contains(e.target) && !e.target.closest('#table')) closeMenu(); }, { passive: true });
+document.addEventListener('mousedown', (e) => { if (!menu.hidden && !menu.contains(e.target) && !e.target.closest('#table')) closeMenu(); });
 
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 update();
